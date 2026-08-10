@@ -11,7 +11,33 @@ function csv.load(inputPath)
     return string
 end
 
-function csv.parseString(inputString, options)
+function csv.parse(input, sep, pos)
+    local row = {} 
+    pos = pos or 1
+    sep = sep or ","
+
+    while true do
+        local s, e, field, delimiter = string.find(input, "([^%"..sep.."\r\n]-)([%"..sep.."\r\n])", pos)
+        
+        if not e then
+            table.insert(row, string.sub(input, pos))
+            return row, #input + 1
+        end
+
+        table.insert(row, field)
+        pos = e + 1
+
+        if delimiter == "\n" then
+            return row, pos
+
+        elseif delimiter == "\r" then
+           if string.sub(input, pos, pos) == "\n" then
+            pos = pos + 1
+           end
+
+           return row, pos
+        end
+    end
 end
 
 local defaultOptions = {

@@ -1,43 +1,43 @@
 local csv = {}
 
 function csv.load(inputPath)
-    local file = io.open(path, "r")
+    local file = io.open(inputPath, "r")
     
     if not file then error("File not found at " .. path) end
     
-    local string = file:read("*a")
+    local String = file:read("*a")
     file:close()
     
-    return string
+    return String 
 end
 
-function csv.parse(input, sep, pos)
-    local row = {} 
-    pos = pos or 1
+function csv.parseRow(inputString,sep, pos)
+    local row = {}
     sep = sep or ","
+    pos = pos or 1 
 
     while true do
-        local s, e, field, delimiter = string.find(input, "([^%"..sep.."\r\n]-)([%"..sep.."\r\n])", pos)
-        
+        local s, e, field, delim = string.find(inputString, "([^%" .. sep .. "\r\n]-)([%" .. sep .. "\r\n])", pos)
+
         if not e then
-            table.insert(row, string.sub(input, pos))
-            return row, #input + 1
+            table.insert(row, string.sub(inputString, pos))
         end
 
         table.insert(row, field)
         pos = e + 1
 
-        if delimiter == "\n" then
+        if delim == "\n" then
             return row, pos
+        end
 
-        elseif delimiter == "\r" then
-           if string.sub(input, pos, pos) == "\n" then
-            pos = pos + 1
-           end
-
-           return row, pos
+        if delim == "\r" then
+            if string.sub(inputString, pos, pos) == "\n" then
+                pos = pos + 1
+            end
         end
     end
+
+    return row, pos
 end
 
 local defaultOptions = {

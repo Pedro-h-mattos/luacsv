@@ -44,25 +44,30 @@ end
 
 csv.parse = function(path, options)
     local input = csv.open(path)
+    local config = csv.parseOptions(options)
 
-    local rows = {}
+    local output = {
+        headers = nil,
+        rows = {}
+    }
     local pos = 1
 
-    options = csv.parseOptions(options)
-    local delimiter = options.delimiter
+    if config.headers then
+        output.headers, pos = csv.parseRow(input, config.delimiter, pos)
+    end
 
     while true do
-        local row, nextPos = csv.parseRow(input, delimiter, pos)
+        local row, nextPos = csv.parseRow(input, config.delimiter, pos)
 
         if not row then
             break
         end
 
-        rows[#rows + 1] = row
+        output.rows[#output.rows + 1] = row
         pos = nextPos
     end
 
-    return rows
+    return output
 end
 
 local defaultOptions = {
@@ -70,49 +75,51 @@ local defaultOptions = {
         defaultValue = ",",
         type = "string"
     },
-    header = {
+    headers = {
         defaultValue = false,
         type = "boolean"
     }
 }
 
-function csv.validateOption(inputKey, inputValue)
-    local default = defaultOptions[inputKey]
+function csv.validateOption(key, value)
+    local default = defaultOptions[key]
 
     if not default then
-        error("Unknown input option: '" .. inputKey .. "'")
+        error("Unknown option: " .. key, 2)
     end
 
-    if inputValue == nil then
+    if value == nil then
         return default.defaultValue
     end
     
-    if type(inputValue) ~= default.type then
+    if type(value) ~= default.type then
         error(
-            "Invalid option '" .. inputKey ..
-            "': expected " .. default.type .. ", got " .. type(inputValue)
+            "Invalid type for option '" .. key ..
+            "': expected " .. default.type ..
+            ", got " .. type(value), 2
         )
     end
     
-    return inputValue
+    return value
 end
 
-function csv.parseOptions(inputOptions)
-    local parsedOptions = {}
+function csv.parseOptions(input)
+    local options = {}
+
+    for key in pairs(defaultOptions) do
+        local value = input and input[key]
+        options[key] = csv.validateOption(key, value)
+    end
+
+    if input then
+        for key in pairs(input) do
+            if not defaultOptions[key] then
+                error("Unknown input option: '" .. key .. "'")
+            end
+        end
+    end
+
+    return options
+end
     
-    if inputOptions then
-        for key, value in pairs(inputOptions) do
-            parsedOptions[key] = csv.validateOption(key, value)
-        end
-    end
-
-    for key, value in pairs(defaultOptions) do
-        if parsedOptions[key] == nil then
-            parsedOptions[key] = csv.validateOption(key, nil)
-        end
-    end
-
-    return parsedOptions
-end
-
 return csv

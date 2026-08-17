@@ -1,52 +1,77 @@
 local csv = {}
 
-function csv.load(inputPath)
-    local file = io.open(inputPath, "r")
-    
-    if not file then error("File not found at " .. path) end
-    
+csv.open = function(path)
+    local file, err = io.open(path, "r")
+
+    if not file then
+        error("File not found at '" .. path .. "': " .. err, 2)
+    end
+
     local String = file:read("*a")
     file:close()
     
     return String 
 end
 
-function csv.parseRow(inputString,sep, pos)
+csv.parseRow = function(input, delimiter, pos)
     local row = {}
-    sep = sep or ","
-    pos = pos or 1 
+    local field = {}
 
-    while true do
-        local s, e, field, delim = string.find(inputString, "([^%" .. sep .. "\r\n]-)([%" .. sep .. "\r\n])", pos)
+    while pos <= #input do
+        local char = input:sub(pos, pos)
 
-        if not e then
-            table.insert(row, string.sub(inputString, pos))
-        end
+        if char == delimiter then
+            row[#row + 1] = table.concat(field)
+            field = {}
+            pos = pos + 1
 
-        table.insert(row, field)
-        pos = e + 1
+        elseif char == "\n" then
+            row[#row + 1] = table.concat(field)
+            return row, pos + 1
 
-        if delim == "\n" then
-            return row, pos
-        end
-
-        if delim == "\r" then
-            if string.sub(inputString, pos, pos) == "\n" then
-                pos = pos + 1
-            end
+        else
+            field[#field + 1] = char
+            pos = pos + 1
         end
     end
 
-    return row, pos
+    if #field > 0 then
+        row[#row + 1] = table.concat(field)
+    end
+    
+    return #row > 0 and row or nil, pos
+end
+
+csv.parse = function(path, options)
+    local input = csv.open(path)
+
+    local rows = {}
+    local pos = 1
+
+    options = csv.parseOptions(options)
+    local delimiter = options.delimiter
+
+    while true do
+        local row, nextPos = csv.parseRow(input, delimiter, pos)
+
+        if not row then
+            break
+        end
+
+        rows[#rows + 1] = row
+        pos = nextPos
+    end
+
+    return rows
 end
 
 local defaultOptions = {
-    headers = {
-        defaultValue = true,
-        type = "boolean"
+    delimiter = {
+        defaultValue = ",",
+        type = "string"
     },
-    trimWhitespace = {
-        defaultValue = true,
+    header = {
+        defaultValue = false,
         type = "boolean"
     }
 }
@@ -64,7 +89,7 @@ function csv.validateOption(inputKey, inputValue)
     
     if type(inputValue) ~= default.type then
         error(
-            "Invalid value type for input option '" .. inputKey ..
+            "Invalid option '" .. inputKey ..
             "': expected " .. default.type .. ", got " .. type(inputValue)
         )
     end
@@ -73,12 +98,12 @@ function csv.validateOption(inputKey, inputValue)
 end
 
 function csv.parseOptions(inputOptions)
-    inputOptions = inputOptions or {}
-
     local parsedOptions = {}
     
-    for key, value in pairs(inputOptions) do
-        parsedOptions[key] = csv.validateOption(key, value)
+    if inputOptions then
+        for key, value in pairs(inputOptions) do
+            parsedOptions[key] = csv.validateOption(key, value)
+        end
     end
 
     for key, value in pairs(defaultOptions) do
